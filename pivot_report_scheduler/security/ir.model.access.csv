@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_scheduled_pivot_report_sale_manager,access.scheduled.pivot.report.sale.manager,model_scheduled_pivot_report,sales_team.group_sale_manager,1,1,1,1
+access_scheduled_pivot_report_account_manager,access.scheduled.pivot.report.account.manager,model_scheduled_pivot_report,account.group_account_manager,1,1,1,1
