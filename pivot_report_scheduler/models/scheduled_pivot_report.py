@@ -7,7 +7,7 @@ from numbers import Number
 from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models
 from odoo.tools import osutil
-from odoo.tools.misc import xlsxwriter
+import xlsxwriter
 from odoo.tools.safe_eval import datetime, safe_eval
 
 
@@ -77,7 +77,15 @@ class ScheduledPivotReport(models.Model):
 
     def _get_report_user(self):
         self.ensure_one()
-        return self.favorite_filter_id.user_id or self.favorite_filter_id.create_uid or self.env.user
+        favorite_filter = self.favorite_filter_id
+        if 'user_id' in favorite_filter._fields:
+            return favorite_filter.user_id or favorite_filter.create_uid or self.env.user
+        if favorite_filter.user_ids:
+            return (
+                favorite_filter.user_ids.filtered(lambda user: user == self.env.user)
+                or favorite_filter.user_ids[:1]
+            )
+        return favorite_filter.create_uid or self.env.user
 
     def _get_favorite_domain(self):
         self.ensure_one()

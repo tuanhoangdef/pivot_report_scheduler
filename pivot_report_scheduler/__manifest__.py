@@ -1,12 +1,12 @@
 {
     'name': 'Pivot Report Scheduler',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.0.0',
     'category': 'Reporting',
     'license': 'LGPL-3',
     'summary': 'Schedule Odoo pivot favorites and email XLSX reports automatically.',
     'description': 'Schedule saved Odoo pivot favorites and send them by email as XLSX reports.',
     'author': 'tuanhoangdef <hng.atuan@gmail.com>',
-    'price': 29.99,
+    'price': 0,
     'currency': 'USD',
     'depends': [
         'base',
@@ -21,6 +21,7 @@
     'images': [
         'static/description/icon.png',
     ],
+    'website': 'https://github.com/tuanhoangdef/pivot_report_scheduler/tree/19.0/',
     'installable': True,
     'auto_install': False
 }
