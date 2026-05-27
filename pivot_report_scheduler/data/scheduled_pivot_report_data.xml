@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="email_template_scheduled_pivot_report" model="mail.template">
+        <field name="name">Scheduled Pivot Report</field>
+        <field name="model_id" ref="pivot_report_scheduler.model_scheduled_pivot_report"/>
+        <field name="subject">{{ object.title or object.favorite_filter_id.name or object.name }}</field>
+        <field name="description">Default email template for scheduled pivot report emails.</field>
+        <field name="body_html" type="html">
+            <div style="font-size:13px;">
+                <p>Hello</p>
+                <p>
+                    Please find the
+                    <strong><t t-out="object.title or object.favorite_filter_id.name or object.name"/></strong>
+                    report attached.
+                </p>
+                <p>Regards</p>
+            </div>
+        </field>
+        <field name="auto_delete" eval="True"/>
+    </record>
+
+    <record id="ir_filter_daily_sales_team_pivot_report" model="ir.filters">
+        <field name="name">Daily Sales by Sales Team</field>
+        <field name="model_id">sale.report</field>
+        <field name="domain">["&amp;", "&amp;", ("state", "not in", ("draft", "cancel", "sent")), ("date", "&gt;=", datetime.datetime.combine(context_today(), datetime.time(0,0,0)).strftime("%Y-%m-%d %H:%M:%S")), ("date", "&lt;", datetime.datetime.combine(context_today() + relativedelta(days=1), datetime.time(0,0,0)).strftime("%Y-%m-%d %H:%M:%S"))]</field>
+        <field name="context">{'pivot_row_groupby': ['date:day'], 'pivot_column_groupby': ['team_id'], 'pivot_measures': ['product_uom_qty']}</field>
+        <field name="sort">[]</field>
+    </record>
+
+    <record id="ir_filter_weekly_sales_team_pivot_report" model="ir.filters">
+        <field name="name">Weekly Sales by Sales Team</field>
+        <field name="model_id">sale.report</field>
+        <field name="domain">["&amp;", "&amp;", ("state", "not in", ("draft", "cancel", "sent")), ("date", "&gt;=", datetime.datetime.combine(context_today() + relativedelta(days=-7), datetime.time(0,0,0)).strftime("%Y-%m-%d %H:%M:%S")), ("date", "&lt;", datetime.datetime.combine(context_today() + relativedelta(days=1), datetime.time(0,0,0)).strftime("%Y-%m-%d %H:%M:%S"))]</field>
+        <field name="context">{'pivot_row_groupby': ['date:day'], 'pivot_column_groupby': ['team_id'], 'pivot_measures': ['product_uom_qty']}</field>
+        <field name="sort">[]</field>
+    </record>
+
+    <record id="scheduled_daily_sales_team_report" model="scheduled.pivot.report">
+        <field name="name">Daily Sales by Sales Team</field>
+        <field name="schedule">daily</field>
+        <field name="favorite_filter_id" ref="ir_filter_daily_sales_team_pivot_report"/>
+        <field name="title">Daily Sales by Sales Team</field>
+        <field name="email_template_id" ref="email_template_scheduled_pivot_report"/>
+    </record>
+
+    <record id="scheduled_weekly_sales_team_report" model="scheduled.pivot.report">
+        <field name="name">Weekly Sales by Sales Team</field>
+        <field name="schedule">weekly</field>
+        <field name="weekly_send_day">6</field>
+        <field name="favorite_filter_id" ref="ir_filter_weekly_sales_team_pivot_report"/>
+        <field name="title">Weekly Sales by Sales Team</field>
+        <field name="email_template_id" ref="email_template_scheduled_pivot_report"/>
+    </record>
+
+</odoo>
