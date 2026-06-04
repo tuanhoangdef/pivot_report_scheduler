@@ -5,6 +5,7 @@ import io
 from numbers import Number
 
 from dateutil.relativedelta import relativedelta
+from lxml import etree
 from odoo import api, fields, models
 from odoo.tools import osutil
 from odoo.tools.misc import xlsxwriter
@@ -96,6 +97,58 @@ class ScheduledPivotReport(models.Model):
         self.ensure_one()
         return ast.literal_eval(self.favorite_filter_id.context)
 
+    def _get_default_pivot_metadata(self, model):
+        view = model.get_view(False, 'pivot')
+        root = etree.fromstring(view['arch'].encode())
+        metadata = {
+            'row_groupbys': [],
+            'column_groupbys': [],
+            'measures': [],
+        }
+        # See: addons/web/static/src/views/pivot/pivot_arch_parser.js:4
+        for node in root.xpath('.//field'):
+            field_name = node.get('name')
+            if not field_name or node.get('invisible') in ('True', '1'):
+                continue
+            groupby_name = field_name
+            if node.get('interval'):
+                groupby_name = '%s:%s' % (field_name, node.get('interval'))
+            if node.get('type') == 'row':
+                metadata['row_groupbys'].append(groupby_name)
+            if node.get('type') == 'col':
+                metadata['column_groupbys'].append(groupby_name)
+            if node.get('type') == 'measure' or node.get('operator'):
+                metadata['measures'].append(field_name)
+        return metadata
+
+    def _process_measure(self, measure):
+        return '__count' if measure == '__count__' else measure
+
+    def _as_list(self, value):
+        if not value:
+            return []
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return [value]
+
+    def _get_favorite_pivot_metadata(self, model, favorite_filter_context):
+        # Match PivotModel.load(): saved pivot_* keys override pivot arch
+        # defaults; generic search group_by replaces row groupbys on first load.
+        metadata = self._get_default_pivot_metadata(model)
+        row_groupbys = favorite_filter_context.get('pivot_row_groupby')
+        if row_groupbys is None:
+            row_groupbys = favorite_filter_context.get('group_by') or metadata['row_groupbys']
+        column_groupbys = favorite_filter_context.get('pivot_column_groupby', metadata['column_groupbys'])
+        if 'pivot_measures' in favorite_filter_context:
+            measures = favorite_filter_context['pivot_measures']
+        else:
+            measures = metadata['measures'] or ['__count']
+        row_groupbys = self._as_list(row_groupbys)
+        column_groupbys = self._as_list(column_groupbys)
+        measures = self._as_list(measures)
+        measures = [self._process_measure(measure) for measure in measures]
+        return row_groupbys, column_groupbys, measures
+
     def _get_group_key(self, line, groupby):
         if not groupby:
             return 'total', 'Total'
@@ -135,9 +188,14 @@ class ScheduledPivotReport(models.Model):
                 valid_measures.append(measure)
                 continue
             field = model._fields.get(measure)
-            if not field or not field.aggregator:
+            if not field:
                 continue
-            measure_fields.append('%s:%s' % (measure, field.aggregator))
+
+            # See: addons/web/static/src/views/pivot/pivot_model.js:1124
+            aggregator = 'count_distinct' if field.type == 'many2one' else field.aggregator
+            if not aggregator:
+                continue
+            measure_fields.append('%s:%s' % (measure, aggregator))
             valid_measures.append(measure)
         if not valid_measures:
             return [], ['__count']
@@ -150,9 +208,7 @@ class ScheduledPivotReport(models.Model):
 
         # The favorite filter is the source of truth for pivot axes and measures,
         # matching how Odoo restores a saved pivot from ir.filters.context.
-        row_groupbys = favorite_filter_context.get('pivot_row_groupby') or favorite_filter_context.get('group_by', [])
-        column_groupbys = favorite_filter_context.get('pivot_column_groupby', [])
-        measures = favorite_filter_context.get('pivot_measures', []) or ['__count']
+        row_groupbys, column_groupbys, measures = self._get_favorite_pivot_metadata(model, favorite_filter_context)
         domain = self._get_favorite_domain()
         fields_list, measures = self._get_measure_fields(model, measures)
         rows = []
